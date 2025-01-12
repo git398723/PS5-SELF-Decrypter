@@ -761,6 +761,7 @@ int main()
             offsets.offset_g_message_id   = 0x4260000;
             offsets.offset_datacave_1     = 0x4270000;
             offsets.offset_datacave_2     = 0x4280000;
+            break;
         case 0x5500000:
             offsets.offset_authmgr_handle = 0xDEF410;
             offsets.offset_sbl_mb_mtx     = 0x28B3038;
@@ -774,6 +775,7 @@ int main()
             offsets.offset_g_message_id   = 0x4260000;
             offsets.offset_datacave_1     = 0x4270000;
             offsets.offset_datacave_2     = 0x4280000;
+            break;
         default:
             SOCK_LOG(sock, "[!] unsupported firmware, dumping then bailing!\n");
             char *dump_buf = mmap(NULL, 0x7800 * 0x1000, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
