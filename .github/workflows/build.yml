@@ -48,11 +48,11 @@ jobs:
       uses: actions/attest-build-provenance@v1
       continue-on-error: true  # this will fail if the repo is private
       with: 
-        subject-path: ./ps5-self-decrypter.elf
+        subject-path: ./bin/ps5-self-decrypter.elf
 
     - name: Upload
       uses: actions/upload-artifact@v3
       with:
         name: ps5-self-decrypter
-        path: ./ps5-self-decrypter.elf
+        path: ./bin/ps5-self-decrypter.elf
         if-no-files-found: error
