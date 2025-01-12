@@ -7,12 +7,17 @@
 
 #include <sys/types.h>
 
+#ifdef LOG_TO_SOCKET
 #define SOCK_LOG(sock, format, ...)                                          \
 {                                                                            \
     char _macro_printfbuf[512];                                              \
     int _macro_size = sprintf(_macro_printfbuf, format, ##__VA_ARGS__);      \
-    _write(sock, _macro_printfbuf, _macro_size);                             \
+    write(sock, _macro_printfbuf, _macro_size);                             \
 } while(0);
+#else
+#define SOCK_LOG(sock, format, ...) \
+    do { printf(format, ##__VA_ARGS__); } while(0);
+#endif
 
 struct sbl_msg_header
 {
@@ -56,7 +61,8 @@ void init_sbl(
     uint64_t mailbox_base_offset,
     uint64_t mailbox_flags_offset,
     uint64_t mailbox_meta_offset,
-    uint64_t mailbox_mtx_offset
+    uint64_t mailbox_mtx_offset,
+    uint64_t g_message_id_offset
 );
 
 int _sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_buf, void *out_buf, int request_type);

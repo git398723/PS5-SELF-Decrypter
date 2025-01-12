@@ -1,6 +1,6 @@
-#include <ps5/libkernel.h>
-#include <ps5/libc.h>
 #include <ps5/kernel.h>
+#include <unistd.h>
+#include <stdio.h>
 
 #include "sbl.h"
 
@@ -20,6 +20,7 @@ uint64_t g_sbl_kernel_offset_mailbox_base;
 uint64_t g_sbl_kernel_offset_mailbox_flags;
 uint64_t g_sbl_kernel_offset_mailbox_meta;
 uint64_t g_sbl_kernel_offset_mailbox_mtx;
+uint64_t g_sbl_kernel_offset_g_message_id;
 int g_sbl_mailbox_marked_inuse = 0;
 
 void DumpHex(int sock, const void* data, size_t size) {
@@ -78,7 +79,8 @@ void init_sbl(
     uint64_t mailbox_base_offset,
     uint64_t mailbox_flags_offset,
     uint64_t mailbox_meta_offset,
-    uint64_t mailbox_mtx_offset)
+    uint64_t mailbox_mtx_offset,
+    uint64_t g_message_id_offset)
 {
     uint64_t DMPML4I;
     uint64_t DMPDPI;
@@ -92,6 +94,7 @@ void init_sbl(
     g_sbl_kernel_offset_mailbox_flags = mailbox_flags_offset;
     g_sbl_kernel_offset_mailbox_meta  = mailbox_meta_offset;
     g_sbl_kernel_offset_mailbox_mtx   = mailbox_mtx_offset;
+    g_sbl_kernel_offset_g_message_id  = g_message_id_offset;
 
     kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_dmpml4i, &DMPML4I, sizeof(int));
     kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_dmpdpi, &DMPDPI, sizeof(int));
@@ -136,7 +139,7 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
 #endif
 
     // Get message ID and update global count
-    kernel_copyout(g_sbl_kernel_data_base + 0x8000, &message_id, sizeof(message_id));
+    kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_g_message_id, &message_id, sizeof(message_id));
 
     if (message_id == 0) {
         message_id = 0x414100;
@@ -144,7 +147,7 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
 
     msg_header->message_id = message_id++;
 
-    kernel_copyin(&message_id, g_sbl_kernel_data_base + 0x8000, sizeof(message_id));
+    kernel_copyin(&message_id, g_sbl_kernel_data_base + g_sbl_kernel_offset_g_message_id, sizeof(message_id));
 
 #if DEBUG
     SOCK_LOG(sock, "sceSblServiceRequest: retrieved message id (0x%llx) write to meta\n", msg_header->message_id);
@@ -174,13 +177,13 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
         if (err != -11)
             break;
 
-        sceKernelUsleep(10);
+        usleep(10);
     }
 
     // Unlock the mailbox on error
     if (err != 0) {
 //        SOCK_LOG(sock, "sceSblServiceRequest: sceSblDriverSendMsg() failed, waiting 1s\n");
-//        sceKernelSleep(1);
+//        sleep(1);
 
 //        kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, &mailbox_to_bitmap, sizeof(mailbox_to_bitmap));
 //        mailbox_to_bitmap &= (~(1 << MAILBOX_NUM));
@@ -190,7 +193,7 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
         DumpHex(sock, msg_header, sizeof(struct sbl_msg_header));
         DumpHex(sock, in_buf, 0x80);
 
-        sceKernelUsleep(50000);
+        usleep(50000);
         return err;
     }
 
@@ -199,7 +202,7 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
 #endif
 
     // Give time for request to process
-    sceKernelUsleep(25000);
+    usleep(25000);
 
 #if DEBUG
     char msg_out[0x98] = {};
@@ -221,7 +224,7 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
             break;
         }
 
-        sceKernelUsleep(1000);
+        usleep(1000);
     }
 
     kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_meta, &mailbox_metadata, sizeof(struct sbl_mailbox_metadata));
@@ -327,7 +330,7 @@ int sceSblDriverSendMsg(int sock, struct sbl_msg_header *msg_header, void *in_bu
             break;
         }
 
-        sceKernelUsleep(1000);
+        usleep(1000);
     } while (1);
 
 #if DEBUG
