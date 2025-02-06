@@ -103,10 +103,12 @@ int _sceSblAuthMgrSmLoadSelfBlock(
         size_one = block_segment->extents[block_idx]->len & ~0xF;
         size_two = size_one - (block_segment->extents[block_idx]->len & 0xF);
     } else {
-        size_one = size_two = SELF_SEGMENT_BLOCK_SIZE(segment);
-        if (segment->uncompressed_size - SELF_SEGMENT_BLOCK_SIZE(segment) < SELF_SEGMENT_BLOCK_SIZE(segment)) {
-            size_one = size_two = segment->uncompressed_size - SELF_SEGMENT_BLOCK_SIZE(segment);
-        }
+        // size_one = size_two = SELF_SEGMENT_BLOCK_SIZE(segment);
+        // if (segment->uncompressed_size - SELF_SEGMENT_BLOCK_SIZE(segment) < SELF_SEGMENT_BLOCK_SIZE(segment)) {
+        //     size_one = size_two = segment->uncompressed_size - SELF_SEGMENT_BLOCK_SIZE(segment);
+        // }
+
+        size_one = size_two = block_segment->extents[block_idx]->len;
     }
 
     load.aligned_size       = size_two;
@@ -118,6 +120,13 @@ int _sceSblAuthMgrSmLoadSelfBlock(
     load.service_id         = service_id;
     load.is_compressed      = SELF_SEGMENT_IS_COMPRESSED(segment);
     load.is_plain_elf       = 0;
+    load.res                = -1;
 
-    return sceSblServiceRequest(sock, &msg, (char *) &load, (char *) &load);
+    int res = sceSblServiceRequest(sock, &msg, (char *) &load, (char *) &load);
+    
+    if (res == 0 && load.res != 0) {
+        res = load.res;
+    }
+
+    return res;
 }

@@ -10,6 +10,7 @@ SOCK_ELF := ps5-self-decrypter-sock-log.elf
 CFLAGS := -Wall -O2 -Iinclude
 
 all: $(ELF)
+sock: $(SOCK_ELF)
 
 CFILES := $(wildcard source/*.c)
 
