@@ -1,6 +1,7 @@
 #include <ps5/kernel.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "sbl.h"
 
@@ -27,7 +28,7 @@ void DumpHex(int sock, const void* data, size_t size) {
 #if DEBUG
     char hexbuf[0x4000];
     (void)memset(hexbuf, 0, sizeof(hexbuf));
-    char *cur = &hexbuf;
+    char *cur = hexbuf;
 
     sprintf(cur, "hex:\n");
     cur += strlen(cur);
@@ -82,9 +83,9 @@ void init_sbl(
     uint64_t mailbox_mtx_offset,
     uint64_t g_message_id_offset)
 {
-    uint64_t DMPML4I;
-    uint64_t DMPDPI;
-    uint64_t PML4PML4I;
+    uint64_t DMPML4I = 0;
+    uint64_t DMPDPI = 0;
+    uint64_t PML4PML4I = 0;
 
     g_sbl_kernel_data_base            = kernel_data_base;
     g_sbl_kernel_offset_dmpml4i       = dmpml4i_offset;
@@ -132,6 +133,10 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
 
     kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_base, &mailbox_base, sizeof(mailbox_base));
     mailbox_addr = mailbox_base + (0x800 * (0x10 + MAILBOX_NUM));
+
+    // at offset 0x4 of out_buf, the res is stored
+    int res_before = -69;
+    kernel_copyin(&res_before, mailbox_addr + 0x18 + 0x4, sizeof(res_before));
 
 #if DEBUG
     SOCK_LOG(sock, "sceSblServiceRequest: mailbox = %p\n", mailbox_addr);
@@ -182,12 +187,12 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
 
     // Unlock the mailbox on error
     if (err != 0) {
-//        SOCK_LOG(sock, "sceSblServiceRequest: sceSblDriverSendMsg() failed, waiting 1s\n");
-//        sleep(1);
-
-//        kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, &mailbox_to_bitmap, sizeof(mailbox_to_bitmap));
-//        mailbox_to_bitmap &= (~(1 << MAILBOX_NUM));
-//        kernel_copyin(&mailbox_to_bitmap, g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, sizeof(mailbox_to_bitmap));
+        SOCK_LOG(sock, "sceSblServiceRequest: sceSblDriverSendMsg() failed, waiting 1s\n");
+        sleep(1);
+        
+        kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, &mailbox_to_bitmap, sizeof(mailbox_to_bitmap));
+        mailbox_to_bitmap &= (~(1 << MAILBOX_NUM));
+        kernel_copyin(&mailbox_to_bitmap, g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, sizeof(mailbox_to_bitmap));
 
         SOCK_LOG(sock, "sceSblServiceRequest: sceSblDriverSendMsg() failed: %d\n", err);
         DumpHex(sock, msg_header, sizeof(struct sbl_msg_header));
@@ -201,8 +206,24 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
     SOCK_LOG(sock, "sceSblServiceRequest: sceSblDriverSendMsg() returned: %d\n", err);
 #endif
 
-    // Give time for request to process
-    usleep(25000);
+    int res_after = res_before;
+    // try for 500ms
+    for (int i = 0; i < 500; i++) {
+        kernel_copyout(mailbox_addr + 0x18 + 0x4, &res_after, sizeof(res_after));
+
+        if (res_after != res_before) {
+            break;
+        }
+
+        usleep(1000);
+    }
+
+    usleep(2000);
+
+    if (res_after == res_before) {
+        SOCK_LOG(sock, "sceSblServiceRequest: request timed out\n");
+        return -1;
+    }
 
 #if DEBUG
     char msg_out[0x98] = {};
@@ -243,9 +264,9 @@ int sceSblServiceRequest(int sock, struct sbl_msg_header *msg_header, void *in_b
         err = -28;
     }
 #endif
-//    kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, &mailbox_to_bitmap, sizeof(mailbox_to_bitmap));
-//    mailbox_to_bitmap &= (~(1 << MAILBOX_NUM));
-//    kernel_copyin(&mailbox_to_bitmap, g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, sizeof(mailbox_to_bitmap));
+    kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, &mailbox_to_bitmap, sizeof(mailbox_to_bitmap));
+    mailbox_to_bitmap &= (~(1 << MAILBOX_NUM));
+    kernel_copyin(&mailbox_to_bitmap, g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_flags, sizeof(mailbox_to_bitmap));
 
     return err;
 }
@@ -262,9 +283,9 @@ int sceSblDriverSendMsgPol(int sock, struct sbl_msg_header *msg_header, void *in
 
 uint64_t pmap_kextract(int sock, uint64_t va)
 {
-    uint64_t DMPML4I;
-    uint64_t DMPDPI;
-    uint64_t PML4PML4I;
+    uint64_t DMPML4I = 0;
+    uint64_t DMPDPI = 0;
+    uint64_t PML4PML4I = 0;
     uint64_t dmap;
     uint64_t dmap_end;
     uint64_t pde_addr;
@@ -299,9 +320,9 @@ uint64_t pmap_kextract(int sock, uint64_t va)
 int sceSblDriverSendMsg(int sock, struct sbl_msg_header *msg_header, void *in_buf)
 {
     uint64_t mmio_space;
-    uint64_t mailbox_base;
+    static uint64_t mailbox_base = 0;
     uint64_t mailbox_addr;
-    uint64_t mailbox_pa;
+    static uint64_t mailbox_pa = 0;
     uint32_t cmd;
     uint32_t status;
 
@@ -309,14 +330,18 @@ int sceSblDriverSendMsg(int sock, struct sbl_msg_header *msg_header, void *in_bu
     mmio_space = g_sbl_dmap_base + 0xE0500000;
 
     // Get mailbox address
-    kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_base, &mailbox_base, sizeof(mailbox_base));
+    if (mailbox_base == 0) {
+        kernel_copyout(g_sbl_kernel_data_base + g_sbl_kernel_offset_mailbox_base, &mailbox_base, sizeof(mailbox_base));
+    }
     mailbox_addr = mailbox_base + (0x800 * (0x10 + MAILBOX_NUM));
 
     // Copy into mailbox
     kernel_copyin(msg_header, mailbox_addr, sizeof(struct sbl_msg_header));
     kernel_copyin(in_buf, mailbox_addr + 0x18, msg_header->query_len);
 
-    mailbox_pa = pmap_kextract(sock, mailbox_addr);
+    if (mailbox_pa == 0) {
+        mailbox_pa = pmap_kextract(sock, mailbox_addr);
+    }
 
     cmd = msg_header->cmd << 8;
 
