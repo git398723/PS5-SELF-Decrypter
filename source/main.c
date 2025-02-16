@@ -905,6 +905,41 @@ int main()
             offsets.offset_datacave_1     = 0x4270000;
             offsets.offset_datacave_2     = 0x4280000;
             break;
+        case 0x6000000:
+        case 0x6020000:
+        case 0x6500000:
+            offsets.offset_authmgr_handle = 0xE0F8D0;
+            offsets.offset_sbl_mb_mtx     = 0x27FF3A8;
+            offsets.offset_mailbox_base   = 0x27FF3B0;
+            offsets.offset_sbl_sxlock     = 0x27FF3B8;
+            offsets.offset_mailbox_flags  = 0x2DE9FC0;
+            offsets.offset_mailbox_meta   = 0x2DE9D60;
+            offsets.offset_dmpml4i        = 0x32D45F4;
+            offsets.offset_dmpdpi         = 0x32D45F8;
+            offsets.offset_pml4pml4i      = 0x32D32FC;
+            offsets.offset_g_message_id   = 0x4260000;
+            offsets.offset_datacave_1     = 0x4270000;
+            offsets.offset_datacave_2     = 0x4280000;
+            break;
+        case 0x7000000:
+        case 0x7010000:
+        case 0x7200000:
+        case 0x7400000:
+        case 0x7600000:
+        case 0x7610000:
+            offsets.offset_authmgr_handle = 0xE10330;
+            offsets.offset_sbl_mb_mtx     = 0x27EF808;
+            offsets.offset_mailbox_base   = 0x27EF810;
+            offsets.offset_sbl_sxlock     = 0x27EF818;
+            offsets.offset_mailbox_flags  = 0x2CBDFC0;
+            offsets.offset_mailbox_meta   = 0x2CBDD60;
+            offsets.offset_dmpml4i        = 0x2E1CAE4;
+            offsets.offset_dmpdpi         = 0x2E1CAE8;
+            offsets.offset_pml4pml4i      = 0x2E1B79C;
+            offsets.offset_g_message_id   = 0x4260000;
+            offsets.offset_datacave_1     = 0x4270000;
+            offsets.offset_datacave_2     = 0x4280000;
+            break;
         default:
             SOCK_LOG(sock, "[!] unsupported firmware, dumping then bailing!\n");
             char *dump_buf = mmap(NULL, 0x7800 * 0x1000, PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
@@ -937,7 +972,7 @@ int main()
 
     // Example:
     // dump_queue_add_file(sock, "/system/common/lib/libkernel_sys.sprx");
-    // dump_queue_add_dir(sock, "/system/vsh", 0);          // 0 -> non-recursive
+    dump_queue_add_dir(sock, "/system/vsh", 0);          // 0 -> non-recursive
     // dump_queue_add_dir(sock, "/mnt/sandbox/pfsmnt", 1);  // 1 -> recursive
     
     // dump_queue_add_file (which is also used by dump_queue_add_dir) will skip files in 
@@ -945,7 +980,7 @@ int main()
     // i did this so when i pass in `/mnt/sandbox/pfsmnt` it will only dump `/mnt/sandbox/pfsmnt/PPSA01487-app0-patch0-union`
     // bc for ps5 games, `app0` and `app0-patch0-union` has the same files
 
-    dump_queue_add_file(sock, "/system/common/lib/libkernel_sys.sprx");
+    //dump_queue_add_file(sock, "/system/common/lib/libkernel_sys.sprx");
     dump(sock, authmgr_handle, &offsets, "/data/dump");
 
 out:
