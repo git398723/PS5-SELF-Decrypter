@@ -995,8 +995,8 @@ int main()
             offsets.offset_dmpdpi         = 0x2E1CAE8;
             offsets.offset_pml4pml4i      = 0x2E1B79C;
             offsets.offset_g_message_id   = 0x4260000;
-            offsets.offset_datacave_1     = 0x8720000;
-            offsets.offset_datacave_2     = 0x8724000;
+            offsets.offset_datacave_1     = 0x5050000;
+            offsets.offset_datacave_2     = 0x5054000;
             break;
         default:
             SOCK_LOG(sock, "[!] unsupported firmware, dumping then bailing!\n");
