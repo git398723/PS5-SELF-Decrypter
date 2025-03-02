@@ -29,6 +29,7 @@ jobs:
       with:
         repository: ps5-payload-dev/sdk
         path: sdk
+        ref: v0.26.2
 
     - name: Setup SDK
       working-directory: sdk
