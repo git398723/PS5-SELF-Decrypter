@@ -199,7 +199,7 @@ struct self_block_segment *self_decrypt_segment(
     kernel_copyin(chunk_table, chunk_table_va, 0x30);
 
     // Request segment decryption
-    for (int tries = 0; tries < 3; tries++) {
+    for (int tries = 0; tries < 30; tries++) {
         err = _sceSblAuthMgrSmLoadSelfSegment(sock, authmgr_handle, service_id, chunk_table_pa, segment_idx);
         if (err == 0)
             break;
@@ -643,7 +643,7 @@ int dump_queue_add_file(int sock, char *path)
 {
     dump_queue_init(sock);
 
-    static const char* allowed_exts[] = { ".elf", ".self", ".prx", ".sprx", ".bin" };
+    static const char* allowed_exts[] = { ".elf", ".self", ".prx", ".sprx", ".bin", ".ebin" };
     static const int allowed_exts_count = sizeof(allowed_exts) / sizeof(allowed_exts[0]);
 
     int len = strlen(path);
@@ -1033,13 +1033,20 @@ int main()
     // dump_queue_add_file(sock, "/system/common/lib/libkernel_sys.sprx");
     // dump_queue_add_dir(sock, "/system/vsh", 0);          // 0 -> non-recursive
     // dump_queue_add_dir(sock, "/mnt/sandbox/pfsmnt", 1);  // 1 -> recursive
-    
+
+    dump_queue_add_dir(sock, "/system/common/lib", 0);
+    dump_queue_add_dir(sock, "/system/eap", 1);
+    dump_queue_add_dir(sock, "/system/vsh/app/NPXS40102", 0);
+    dump_queue_add_dir(sock, "/system/vsh/app/NPXS40109", 0);
+    dump_queue_add_dir(sock, "/system_ex/common_ex/lib", 0);
+    dump_queue_add_dir(sock, "/system_ex/app", 1);
+
     // dump_queue_add_file (which is also used by dump_queue_add_dir) will skip files in 
     // `/mnt/sandbox/pfsmnt/*-app0/` and `/mnt/sandbox/pfsmnt/*-patch0/`
     // i did this so when i pass in `/mnt/sandbox/pfsmnt` it will only dump `/mnt/sandbox/pfsmnt/PPSA01487-app0-patch0-union`
     // bc for ps5 games, `app0` and `app0-patch0-union` has the same files
 
-    dump_queue_add_dir(sock, "/mnt/sandbox/pfsmnt", 1);
+    //dump_queue_add_dir(sock, "/mnt/sandbox/pfsmnt", 1);
     dump(sock, authmgr_handle, &offsets, "/data/dump");
 
 out:
